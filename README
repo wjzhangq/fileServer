@@ -1,0 +1,2 @@
+python filesock a.log 1024
+将生成a.log.sock文件,每次能从a.log.sock中读取1024个字节,当a.log中数据读取完毕,将返回空字串
