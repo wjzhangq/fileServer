@@ -1,5 +1,5 @@
 <?php
-$sock = fsockopen('unix:///Users/zhangwenjin/tmp/filesock/a.log.sock', NULL, $errno, $errstr);
+$sock = fsockopen('unix:///data/tmp/t_video_reference_3.sort.json.sock', NULL, $errno, $errstr);
 if (!$sock){
 	var_dump($errstr);
 	exit();

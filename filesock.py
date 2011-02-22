@@ -1,6 +1,31 @@
+# -*- coding:utf-8 -*-
+
 import socket, os, math, select, threading, time, sys
 import logging
 
+class fileLine:
+    def __init__(self, path, start, size):
+        self.fp = open(path, 'r')
+        self.count = 0
+        v_start = 0
+        if start > 0 :
+            v_start = start -1
+            self.fp.seek(v_start)
+        
+        self.buff = self.fp.readline(1024)
+        
+    def __iter__(self):
+        return self
+    
+    def next(self):
+        self.count = self.count + 1
+        if self.count > 2:
+            self.fp.close()
+            raise StopIteration
+        self.buff = self.fp.readline(1024)
+        
+        return self.buff
+        
 
 class subServer(threading.Thread):
     file_path = ''
@@ -22,6 +47,7 @@ class subServer(threading.Thread):
         live_group_count = self.getLiveCount()
         
         logging.debug("thread run info:\n\tthread_count/live group:%d/%d" % (thread_count, live_group_count))
+        debug_group_info()
         
         if live_group_count == 0:
             self.__class__.need_stop = True
@@ -47,6 +73,9 @@ class subServer(threading.Thread):
         self.__class__.group_pos[self.group] = pos
         lock.release()
         
+        #开始执行时候更新时间
+        self.__class__.group_last[self.group] = -1
+        
         start = self.__class__.group_list[self.group][pos - 1] * self.__class__.package_size
         logging.debug("group info:\n\tgroup index:%d\n\tgroup pos/total:%d/%d" % (self.group, pos -1, len(self.__class__.group_list[self.group])))
         
@@ -55,21 +84,18 @@ class subServer(threading.Thread):
         if data:
             logging.debug(data)
             
-        fp = open(self.__class__.file_path, 'r')
-        fp.seek(start)
-        
-        buff = fp.readline(1024)
-        if buff:
+        fileObj = fileLine(self.__class__.file_path, start, self.__class__.package_size)
+        for buff in fileObj:
             self.sock.sendall(buff)
-        fp.close()
         self.sock.close()
         
+        #结算执行时候更新时间
         self.__class__.group_last[self.group] = time.time()
         
     def getLiveCount(self):
         count = 0
         for i in xrange(self.__class__.group_count):
-            if self.__class__.group_pos[i] + 1 < len(self.__class__.group_list):
+            if self.__class__.group_pos[i] + 1 < len(self.__class__.group_list[i]):
                 count = count + 1
         
         return count
@@ -78,7 +104,7 @@ class subServer(threading.Thread):
         max_time = -1
         max_group = 0
         for i in xrange(self.__class__.group_count):
-            if (self.__class__.group_pos[i] + 1 < len(self.__class__.group_list)) and (self.__class__.group_last[i] > max_time):
+            if (self.__class__.group_pos[i] + 1 < len(self.__class__.group_list[i])) and (self.__class__.group_last[i] > max_time):
                 max_time = self.__class__.group_last[i]
                 max_group = i
         
@@ -94,6 +120,11 @@ class subServer(threading.Thread):
                 group = i
         
         return group
+        
+def debug_group_info():
+    for i in xrange(subServer.group_count):
+        logging.debug("\tgroup index %d\n\t\tstart-end:%d-%d\n\t\tpos/count:%d/%d" % (i, subServer.group_list[i][0],subServer.group_list[i][-1], subServer.group_pos[i] ,len(subServer.group_list[i]),))
+    
     
 if __name__ == '__main__': 
     package_size = 1024
@@ -129,11 +160,9 @@ if __name__ == '__main__':
         subServer.group_list[group_count -1] = range(subServer.group_list[-1][0], package_count)
     
     
-    
     #debug
     logging.debug("file '%s' info:\n\tpackage size/file size: %d/%d\n\tpackage count/group count:%d/%d\n\tgroup sep: %d" % (t_path, package_size, t_size, package_count, group_count, group_sep))
-    for i in xrange(group_count):
-        logging.debug("group index %d\n\tstart-end:%d-%d\t%d" % (i, subServer.group_list[i][0],subServer.group_list[i][-1], len(subServer.group_list[i]),))
+    debug_group_info()
     
 
     sock_path = t_path + '.sock'
