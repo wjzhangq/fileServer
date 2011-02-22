@@ -4,25 +4,50 @@ import socket, os, math, select, threading, time, sys
 import logging
 
 class fileLine:
+    min_size = 1024
     def __init__(self, path, start, size):
         self.fp = open(path, 'r')
-        self.count = 0
+        
+        mod = divmod(size, self.__class__.min_size)
+        
+        self.max_count = mod[0] + 1
+        self.back_count = self.__class__.min_size - mod[1]
+        
+        
         v_start = 0
         if start > 0 :
             v_start = start -1
             self.fp.seek(v_start)
         
-        self.buff = self.fp.readline(1024)
+        buff = self.fp.read(self.__class__.min_size)
+        self.count = 1
+        
+        if self.max_count == 1:
+            pos = buff.find("\n")
+            end_pos = buff.find("\n", len(buff) - self.back_count)
+        pos = buff.find("\n")
+
+        if pos > -1:
+            self.buff = buff[pos+1:]
+            self.pos = pos
+        else:
+            self.buff = buff
+            self.pos = 0
+        
+        
         
     def __iter__(self):
         return self
     
     def next(self):
-        self.count = self.count + 1
-        if self.count > 2:
+        buff_len = len(self.buff)
+        if buff_len == 0:
             self.fp.close()
             raise StopIteration
-        self.buff = self.fp.readline(1024)
+        
+        buff = self.buff
+        
+        
         
         return self.buff
         
