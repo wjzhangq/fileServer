@@ -10,46 +10,77 @@ class fileLine:
         
         mod = divmod(size, self.__class__.min_size)
         
-        self.max_count = mod[0] + 1
-        self.back_count = self.__class__.min_size - mod[1]
-        
-        
-        v_start = 0
-        if start > 0 :
-            v_start = start -1
-            self.fp.seek(v_start)
-        
-        buff = self.fp.read(self.__class__.min_size)
-        self.count = 1
-        
-        if self.max_count == 1:
-            pos = buff.find("\n")
-            end_pos = buff.find("\n", len(buff) - self.back_count)
-        pos = buff.find("\n")
-
-        if pos > -1:
-            self.buff = buff[pos+1:]
-            self.pos = pos
+        self.max_count = mod[0]
+        self.post_count = mod[1]
+        if self.max_count == 0:
+            self.count = -1
         else:
-            self.buff = buff
-            self.pos = 0
+            self.count = 0
         
         
+        if start == 0:
+            pre_buff = ''
+        elif start > self.__class__.min_size:
+            self.fp.seek(start - self.__class__.min_size)
+            buff = self.fp.read(self.__class__.min_size)
+            pos = buff.rfind("\n")
+            if pos == -1:
+                #error
+                pre_buff = ''
+            else:
+                pre_buff = buff[pos+1:]
+            self.fp.seek(start)
+        else:
+            buff = self.fp.read(start)
+            pos = buff.rfind("\n")
+            if pos == -1:
+                pre_buff = buff
+            else:
+                pre_buff = buff[pos+1:]
+        self.pre_buff = pre_buff
         
     def __iter__(self):
         return self
     
     def next(self):
-        buff_len = len(self.buff)
-        if buff_len == 0:
+        max_count_1 = self.max_count -1
+        if self.count > max_count_1:
             self.fp.close()
             raise StopIteration
+            
+            
+        if self.max_count == 0:
+            buff = self.fp.read(self.post_count)
+            pos = buff.rfind("\n")
+            if pos == -1:
+                #error
+                pass
+            else:
+                buff = buff[:pos]
+        else:
+            if self.count == max_count_1:
+                buff_count = self.__class__.min_size + self.post_count
+                buff = self.fp.read(buff_count)
+
+                if len(buff) == buff_count:
+                    pos = buff.rfind("\n")
+                    if pos == -1:
+                        #error
+                        pass
+                    else:
+                        buff = buff[:pos]
+                else:
+                    pass
+            else:
+                buff = self.fp.read(self.__class__.min_size)
+            
+        if self.count < 1:
+            buff = self.pre_buff + buff
+            self.pre_buff = ''
+                        
+        self.count = self.count + 1
         
-        buff = self.buff
-        
-        
-        
-        return self.buff
+        return buff
         
 
 class subServer(threading.Thread):
