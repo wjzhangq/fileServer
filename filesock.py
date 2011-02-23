@@ -1,7 +1,58 @@
 # -*- coding:utf-8 -*-
 
 import socket, os, math, select, threading, time, sys
+import getopt, sys, os
 import logging
+
+def Usage():
+    print "Usage:python fileServer.py -o a.sock -g10 -s1024 -v a.log\n\
+        -o out filename default xxx.sock\n\
+        -g the group num, default 1\n\
+        -s package size, default 1024\n\
+        -v display info"
+def getParam():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'o:g:s:v', ["help"])
+    except getopt.GetoptError, err:
+        Usage()
+        sys.exit(2)
+        
+    if not args:
+        Usage()
+        sys.exit(1)
+    
+    fpath = args[-1]
+    if not os.path.isfile(fpath):
+        print "%s is not a file" % fpath
+        sys.exit(1)
+        
+    param = {'-o':fpath + '.sock','-g':1, '-s':1024, '-v':False, '-f':fpath}
+    for item in opts:
+        if item[0] == '-s':
+            v = item[1].lower()
+            base = 1
+            if v.endswith('k'):
+                base = 1024
+                v = v[:-1]
+            elif v.endswith('m'):
+                base = 1024 * 1024
+                v = v[:-1]
+            try:
+                v = int(v) * base
+                param['-s'] = v
+            except:
+                pass
+        elif item[0] == '-g':
+            try:
+                param['-g'] = int(item[1])
+            except:
+                pass
+        elif item[0] == '-v':
+            param['-v'] = True
+        else:
+            param[item[0]] = item[1]
+    
+    return param
 
 class fileLine:
     min_size = 1024
@@ -178,16 +229,20 @@ class subServer(threading.Thread):
         return group
         
 def debug_group_info():
-    for i in xrange(subServer.group_count):
-        logging.debug("\tgroup index %d\n\t\tstart-end:%d-%d\n\t\tpos/count:%d/%d" % (i, subServer.group_list[i][0],subServer.group_list[i][-1], subServer.group_pos[i] ,len(subServer.group_list[i]),))
+    global param
+    if param['-v']:
+        for i in xrange(subServer.group_count):
+            logging.debug("\tgroup index %d\n\t\tstart-end:%d-%d\n\t\tpos/count:%d/%d" % (i, subServer.group_list[i][0],subServer.group_list[i][-1], subServer.group_pos[i] ,len(subServer.group_list[i]),))
     
     
-if __name__ == '__main__': 
-    package_size = 1024
-    group_count = 3
-    t_path = 'a.log'
+if __name__ == '__main__':
+    param = getParam()
+    package_size = param['s']
+    group_count = param['-g']
+    t_path = param['-f']
     
-    logging.basicConfig(level=logging.DEBUG)
+    if param['-v']:
+        logging.basicConfig(level=logging.DEBUG)
     
     t_dir = os.path.dirname(t_path)
     t_size = os.path.getsize(t_path)
@@ -217,11 +272,12 @@ if __name__ == '__main__':
     
     
     #debug
-    logging.debug("file '%s' info:\n\tpackage size/file size: %d/%d\n\tpackage count/group count:%d/%d\n\tgroup sep: %d" % (t_path, package_size, t_size, package_count, group_count, group_sep))
+    if param['-v']:
+        logging.debug("file '%s' info:\n\tpackage size/file size: %d/%d\n\tpackage count/group count:%d/%d\n\tgroup sep: %d" % (t_path, package_size, t_size, package_count, group_count, group_sep))
     debug_group_info()
     
 
-    sock_path = t_path + '.sock'
+    sock_path = param['-o']
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         os.remove(sock_path)
@@ -232,7 +288,6 @@ if __name__ == '__main__':
 
     while True:
         conn, addr = s.accept()
-        print 'accept',addr
         th = subServer(conn).start()
         if subServer.need_stop:
             pass
