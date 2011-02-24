@@ -154,7 +154,6 @@ class subServer(threading.Thread):
         live_group_count = self.getLiveCount()
         
         logging.debug("thread run info:\n\tthread_count/live group:%d/%d" % (thread_count, live_group_count))
-        debug_group_info()
         
         if live_group_count == 0:
             self.__class__.need_stop = True
@@ -185,11 +184,12 @@ class subServer(threading.Thread):
         
         start = self.__class__.group_list[self.group][pos - 1] * self.__class__.package_size
         logging.debug("group info:\n\tgroup index:%d\n\tgroup pos/total:%d/%d" % (self.group, pos -1, len(self.__class__.group_list[self.group])))
+        debug_group_info()
         
         #sock
-        data = self.sock.recv(1024)
-        if data:
-            logging.debug(data)
+        # data = self.sock.recv(1024)
+        # if data:
+        #     logging.debug(data)
             
         fileObj = fileLine(self.__class__.file_path, start, self.__class__.package_size)
         for buff in fileObj:
@@ -237,7 +237,7 @@ def debug_group_info():
     
 if __name__ == '__main__':
     param = getParam()
-    package_size = param['s']
+    package_size = param['-s']
     group_count = param['-g']
     t_path = param['-f']
     
@@ -287,8 +287,13 @@ if __name__ == '__main__':
     s.listen(10)
 
     while True:
-        conn, addr = s.accept()
-        th = subServer(conn).start()
-        if subServer.need_stop:
-            pass
-            #break
+        try:
+            conn, addr = s.accept()
+            th = subServer(conn).start()
+        except:
+            try:
+                os.remove(sock_path)
+            except:
+                pass
+            break
+            
